@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fitness Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e0e0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fitness Tracker">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg:#0e0e0e; --surface:#161616; --border:#2a2a2a;
+    --text:#f0ece4; --muted:#555; --accent:#e8ff3c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'DM Sans','Segoe UI',sans-serif;font-weight:300;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;
+    padding-bottom:80px;
+  }
+  #glow{
+    position:fixed;top:-200px;left:50%;transform:translateX(-50%);
+    width:500px;height:500px;border-radius:50%;
+    filter:blur(120px);opacity:0.07;pointer-events:none;
+    transition:background 0.6s;background:var(--accent);
+  }
+  /* NAV */
+  .bottom-nav{
+    position:fixed;bottom:0;left:0;right:0;
+    background:#111;border-top:1px solid var(--border);
+    display:flex;z-index:50;
+  }
+  .nav-tab{
+    flex:1;padding:12px 0 10px;background:none;border:none;
+    color:var(--muted);font-family:inherit;font-size:9px;
+    letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    transition:color 0.2s;
+  }
+  .nav-tab .ti{font-size:16px;line-height:1;}
+  .nav-tab.active{color:var(--accent);}
+  /* SCREENS */
+  .screen{display:none;flex-direction:column;align-items:center;width:100%;}
+  .screen.active{display:flex;}
+  /* HEADER */
+  .header{
+    width:100%;max-width:480px;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:24px 20px 14px;
+  }
+  .week-badge{font-size:11px;letter-spacing:0.2em;color:var(--muted);}
+  .hist-btn{
+    background:none;border:1px solid var(--border);color:#666;
+    font-size:12px;padding:5px 12px;cursor:pointer;
+    letter-spacing:0.05em;font-family:inherit;
+  }
+  /* CARD */
+  .card{
+    width:calc(100% - 40px);max-width:480px;
+    background:var(--surface);border:1px solid var(--border);
+    padding:28px 24px 24px;
+  }
+  .variant-tag{
+    display:inline-block;font-size:10px;letter-spacing:0.2em;
+    text-transform:uppercase;border:1px solid;padding:3px 10px;margin-bottom:18px;
+  }
+  .reps-wrap{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;}
+  .reps-num{font-family:'Bebas Neue',Impact,sans-serif;font-size:88px;line-height:1;transition:color 0.4s;}
+  .reps-label{font-size:13px;letter-spacing:0.2em;color:var(--muted);}
+  .series-line{font-size:13px;color:#888;margin-bottom:24px;letter-spacing:0.05em;}
+  .progress-wrap{margin-bottom:20px;}
+  .progress-meta{font-size:12px;color:#666;margin-bottom:8px;}
+  .progress-bar{height:2px;background:var(--border);}
+  .progress-fill{height:100%;transition:width 0.4s,background 0.4s;}
+  .warn{
+    font-size:12px;color:#ff9933;
+    background:rgba(255,153,51,0.08);border:1px solid rgba(255,153,51,0.2);
+    padding:8px 12px;margin-bottom:16px;display:none;
+  }
+  .warn.visible{display:block;}
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+  .btn{
+    padding:13px 0;border:none;font-size:14px;font-weight:500;
+    cursor:pointer;letter-spacing:0.05em;font-family:inherit;transition:opacity 0.15s;
+  }
+  .btn:hover{opacity:0.85;}
+  .btn-fail{background:#1e1e1e;color:#888;border:1px solid var(--border);}
+  .btn-ok{color:#0e0e0e;}
+  /* SECONDARY EXERCISE */
+  .secondary-card{
+    width:calc(100% - 40px);max-width:480px;
+    background:var(--surface);border:1px solid var(--border);
+    padding:20px 24px;margin-top:12px;
+  }
+  .sec-label{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .sec-exercise{font-size:15px;color:var(--text);margin-bottom:4px;}
+  .sec-detail{font-size:12px;color:#666;}
+  /* PIPELINE */
+  .pipeline{
+    display:flex;gap:14px;margin-top:28px;
+    padding:0 20px 8px;overflow-x:auto;
+    width:100%;max-width:480px;scrollbar-width:none;
+  }
+  .pipeline::-webkit-scrollbar{display:none;}
+  .pipe-step{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:5px;}
+  .pipe-dot{width:7px;height:7px;border-radius:50%;transition:all 0.4s;}
+  .pipe-name{font-size:9px;letter-spacing:0.06em;text-transform:uppercase;transition:color 0.4s;}
+  .reset-btn{
+    margin-top:32px;background:none;border:none;color:#333;
+    font-size:11px;cursor:pointer;letter-spacing:0.1em;
+    text-transform:uppercase;font-family:inherit;
+  }
+  .reset-btn:hover{color:#666;}
+  /* SETUP */
+  .setup-card{
+    width:calc(100% - 40px);max-width:400px;
+    padding:40px 32px;
+    background:var(--surface);border:1px solid var(--border);
+  }
+  .setup-title{font-family:'Bebas Neue',Impact,sans-serif;font-size:52px;line-height:1;margin-bottom:20px;}
+  .setup-sub{font-size:14px;color:#888;line-height:1.6;margin-bottom:20px;}
+  .setup-input{
+    width:100%;background:var(--bg);border:1px solid var(--border);
+    color:var(--text);font-size:30px;padding:12px 14px;
+    font-family:inherit;outline:none;
+  }
+  .setup-preview{margin-top:10px;font-size:13px;color:#666;min-height:20px;}
+  .btn-start{
+    width:100%;margin-top:20px;padding:14px;border:none;
+    font-size:14px;font-weight:500;cursor:pointer;
+    letter-spacing:0.05em;font-family:inherit;color:#0e0e0e;
+  }
+  .btn-start:disabled{opacity:0.35;cursor:default;}
+  /* HISTORY */
+  .hist-list{width:100%;max-width:480px;padding:0 20px;}
+  .hist-empty{color:#555;text-align:center;margin-top:60px;font-size:14px;}
+  .hist-row{border-bottom:1px solid #1e1e1e;padding:14px 0;}
+  .hist-top{display:flex;justify-content:space-between;align-items:center;}
+  .hist-week{color:#666;font-size:11px;letter-spacing:0.1em;}
+  .hist-badge{font-size:10px;padding:2px 8px;border:1px solid;}
+  .hist-detail{margin-top:5px;font-size:15px;}
+  .hist-variant{color:#555;}
+  .hist-group-tag{
+    font-size:9px;letter-spacing:0.12em;text-transform:uppercase;
+    padding:2px 6px;border:1px solid;margin-right:6px;
+  }
+  /* COMPLETED */
+  .completed-card{
+    width:calc(100% - 40px);max-width:400px;
+    margin-top:60px;padding:40px 32px;
+    background:var(--surface);border:1px solid #444;text-align:center;
+  }
+  .completed-icon{font-size:48px;margin-bottom:20px;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(1.1)}}
+  .completed-title{font-family:'Bebas Neue',Impact,sans-serif;font-size:clamp(38px,10vw,52px);line-height:1;margin-bottom:16px;}
+  .completed-sub{font-size:14px;color:#888;line-height:1.6;margin-bottom:20px;}
+  .completed-stats{background:var(--bg);border:1px solid var(--border);padding:16px;font-size:13px;color:#666;line-height:2;}
+  /* DIET */
+  .diet-wrap{width:100%;max-width:480px;padding:0 20px;}
+  .diet-header{padding:24px 0 18px;display:flex;justify-content:space-between;align-items:baseline;}
+  .diet-title{font-family:'Bebas Neue',Impact,sans-serif;font-size:28px;letter-spacing:0.05em;}
+  .diet-date{font-size:11px;letter-spacing:0.15em;color:var(--muted);}
+  .block-label{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .surface-block{background:var(--surface);border:1px solid var(--border);padding:20px 24px;margin-bottom:12px;}
+  .weight-row{display:flex;gap:10px;align-items:center;}
+  .weight-input{
+    background:var(--bg);border:1px solid var(--border);
+    color:var(--text);font-size:24px;padding:8px 12px;
+    font-family:inherit;outline:none;width:110px;
+  }
+  .weight-unit{font-size:13px;color:var(--muted);}
+  .weight-save{
+    margin-left:auto;background:none;border:1px solid var(--border);
+    color:#888;font-size:12px;padding:8px 16px;cursor:pointer;
+    font-family:inherit;letter-spacing:0.08em;transition:all 0.15s;
+  }
+  .weight-save:hover{border-color:#e8ff3c;color:#e8ff3c;}
+  .macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  .macro-card{background:var(--surface);border:1px solid var(--border);padding:18px;position:relative;overflow:hidden;}
+  .macro-val{font-family:'Bebas Neue',Impact,sans-serif;font-size:34px;line-height:1;margin:6px 0 2px;}
+  .macro-unit{font-size:12px;color:var(--muted);}
+  .macro-bar{position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--border);}
+  .macro-bar-fill{height:100%;transition:width 0.4s;}
+  .today-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #1e1e1e;}
+  .today-row:last-child{border-bottom:none;padding-bottom:0;}
+  .today-name{font-size:14px;}
+  .today-goal{font-size:12px;color:var(--muted);margin-top:2px;}
+  .toggle-btn{width:52px;height:28px;border-radius:14px;border:none;cursor:pointer;position:relative;transition:background 0.25s;flex-shrink:0;}
+  .toggle-btn::after{content:'';position:absolute;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left 0.25s;}
+  .toggle-btn.off{background:#2a2a2a;}.toggle-btn.off::after{left:3px;}
+  .toggle-btn.on::after{left:27px;}
+  .diet-alert{background:rgba(255,153,51,0.08);border:1px solid rgba(255,153,51,0.25);padding:12px 16px;font-size:12px;color:#ff9933;margin-bottom:12px;display:none;line-height:1.5;}
+  .diet-alert.visible{display:block;}
+  .week-sum-row{display:flex;justify-content:space-around;}
+  .week-sum-item{text-align:center;}
+  .week-sum-val{font-family:'Bebas Neue',Impact,sans-serif;font-size:26px;line-height:1;}
+  .week-sum-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .diet-hist-row{border-bottom:1px solid #1e1e1e;padding:11px 0;display:flex;justify-content:space-between;align-items:center;}
+  .diet-hist-date{font-size:11px;color:#666;letter-spacing:0.08em;}
+  .diet-hist-badges{display:flex;gap:6px;}
+  .dhb{font-size:10px;padding:2px 7px;border:1px solid;}
+  .dhb-ok{background:rgba(60,255,170,0.08);color:#3cffaa;border-color:#3cffaa44;}
+  .dhb-fail{background:rgba(255,60,60,0.08);color:#ff5555;border-color:#ff555544;}
+  .no-weight-msg{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;line-height:1.8;}
+  /* SCHEDULE CARD */
+  .schedule-card{width:calc(100% - 40px);max-width:480px;background:var(--surface);border:1px solid var(--border);padding:20px 24px;margin-bottom:12px;}
+  .schedule-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e1e1e;}
+  .schedule-row:last-child{border-bottom:none;}
+  .sched-day{font-size:12px;color:var(--muted);width:80px;}
+  .sched-group{font-size:13px;}
+  .sched-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  /* RESPONSIVE */
+  @media(max-width:480px){
+    .header{padding:18px 16px 12px;}
+    .card{width:calc(100% - 24px);padding:22px 18px 20px;}
+    .secondary-card{width:calc(100% - 24px);padding:16px 18px;}
+    .reps-num{font-size:clamp(60px,18vw,88px);}
+    .series-line{font-size:12px;margin-bottom:18px;}
+    .btn{padding:14px 0;font-size:13px;}
+    .pipeline{gap:12px;}
+    .pipe-name{font-size:8px;}
+    .reset-btn{margin-top:24px;}
+    .setup-card{margin-top:0;padding:24px 18px;}
+    .setup-title{font-size:clamp(34px,11vw,52px);}
+    .setup-input{font-size:24px;padding:10px 12px;}
+    .hist-list{padding:0 16px;}
+    .modal{padding:22px 18px;}
+    .diet-wrap{padding:0 14px;}
+    .macro-val{font-size:28px;}
+  }
+  @media(max-width:360px){
+    .reps-num{font-size:54px;}
+    .card{padding:18px 14px;}
+    .macro-grid{grid-template-columns:1fr;}
+  }
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:100;}
+  .modal-overlay.visible{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);padding:30px;max-width:320px;width:calc(100% - 40px);text-align:center;}
+  .modal h3{font-family:'Bebas Neue',Impact,sans-serif;font-size:22px;margin-bottom:10px;}
+  .modal p{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5;}
+  .modal-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .modal-cancel{background:#1e1e1e;color:#888;border:1px solid var(--border);padding:12px;cursor:pointer;font-family:inherit;font-size:13px;}
+  .modal-confirm{background:#ff3c3c;color:#fff;border:none;padding:12px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;}
+</style>
+</head>
+<body>
+<div id="glow"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal">
+    <h3>¿REINICIAR?</h3>
+    <p>Se borrará todo el progreso, historial y datos de dieta.</p>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="modal-confirm" onclick="confirmReset()">Sí, reiniciar</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div class="screen active" id="screen-setup" style="min-height:100vh;justify-content:center;padding:20px 0;">
+  <div class="setup-card">
+    <div class="setup-title">FITNESS<br><span style="color:#e8ff3c">TRACKER</span></div>
+    <p class="setup-sub">¿Cuántas flexiones normales puedes hacer de corrido ahora mismo?</p>
+    <input class="setup-input" type="number" min="1" placeholder="ej. 27" id="maxInput" oninput="onMaxInput()"/>
+    <div class="setup-preview" id="setupPreview"></div>
+    <button class="btn btn-start" id="startBtn" disabled onclick="startProgram()" style="background:#e8ff3c">
+      Comenzar programa →
+    </button>
+  </div>
+</div>
+
+<!-- PUSH -->
+<div class="screen" id="screen-push">
+  <div class="header">
+    <span class="week-badge" id="pushWeekBadge">SEMANA 1</span>
+    <button class="hist-btn" onclick="showHistFor('push')">Historial (<span id="pushHistCount">0</span>)</button>
+  </div>
+  <div class="card">
+    <div class="variant-tag" id="pushVariantTag">Normales</div>
+    <div class="reps-wrap">
+      <div class="reps-num" id="pushRepsNum">18</div>
+      <div class="reps-label">REPS</div>
+    </div>
+    <div class="series-line">3 series &nbsp;·&nbsp; RIR 2–3</div>
+    <div class="progress-wrap">
+      <div class="progress-meta" id="pushProgressMeta"></div>
+      <div class="progress-bar"><div class="progress-fill" id="pushProgressFill"></div></div>
+    </div>
+    <div class="warn" id="pushWarn">⚠ Semana repetida — si fallas otra vez recalibramos</div>
+    <div class="btn-row">
+      <button class="btn btn-fail" onclick="handleResult('push',false)">✗ No pude</button>
+      <button class="btn btn-ok" id="pushBtnOk" onclick="handleResult('push',true)">✓ Completé</button>
+    </div>
+  </div>
+  <!-- Complementario hombro -->
+  <div class="secondary-card">
+    <div class="sec-label">Complementario — Hombros</div>
+    <div class="sec-exercise" id="pushSecExercise">Press hombro con mancuernas</div>
+    <div class="sec-detail" id="pushSecDetail">3 series × 12 reps · 2kg cada mano</div>
+  </div>
+  <div class="pipeline" id="pushPipeline"></div>
+  <button class="reset-btn" onclick="openModal()">Reiniciar</button>
+</div>
+
+<!-- PULL -->
+<div class="screen" id="screen-pull">
+  <div class="header">
+    <span class="week-badge" id="pullWeekBadge">SEMANA 1</span>
+    <button class="hist-btn" onclick="showHistFor('pull')">Historial (<span id="pullHistCount">0</span>)</button>
+  </div>
+  <div class="card">
+    <div class="variant-tag" id="pullVariantTag">Remo Bilateral</div>
+    <div class="reps-wrap">
+      <div class="reps-num" id="pullRepsNum">10</div>
+      <div class="reps-label">REPS</div>
+    </div>
+    <div class="series-line">3 series &nbsp;·&nbsp; RIR 2–3</div>
+    <div class="progress-wrap">
+      <div class="progress-meta" id="pullProgressMeta"></div>
+      <div class="progress-bar"><div class="progress-fill" id="pullProgressFill"></div></div>
+    </div>
+    <div class="warn" id="pullWarn">⚠ Semana repetida — si fallas otra vez recalibramos</div>
+    <div class="btn-row">
+      <button class="btn btn-fail" onclick="handleResult('pull',false)">✗ No pude</button>
+      <button class="btn btn-ok" id="pullBtnOk" onclick="handleResult('pull',true)">✓ Completé</button>
+    </div>
+  </div>
+  <div class="secondary-card">
+    <div class="sec-label">Complementario — Bíceps</div>
+    <div class="sec-exercise">Curl de bíceps con mancuernas</div>
+    <div class="sec-detail" id="pullSecDetail">3 series × 10 reps · 2kg cada mano</div>
+  </div>
+  <div class="pipeline" id="pullPipeline"></div>
+  <button class="reset-btn" onclick="openModal()">Reiniciar</button>
+</div>
+
+<!-- LEGS -->
+<div class="screen" id="screen-legs">
+  <div class="header">
+    <span class="week-badge" id="legsWeekBadge">SEMANA 1</span>
+    <button class="hist-btn" onclick="showHistFor('legs')">Historial (<span id="legsHistCount">0</span>)</button>
+  </div>
+  <div class="card">
+    <div class="variant-tag" id="legsVariantTag">Sentadilla</div>
+    <div class="reps-wrap">
+      <div class="reps-num" id="legsRepsNum">15</div>
+      <div class="reps-label">REPS</div>
+    </div>
+    <div class="series-line">3 series &nbsp;·&nbsp; RIR 2–3</div>
+    <div class="progress-wrap">
+      <div class="progress-meta" id="legsProgressMeta"></div>
+      <div class="progress-bar"><div class="progress-fill" id="legsProgressFill"></div></div>
+    </div>
+    <div class="warn" id="legsWarn">⚠ Semana repetida — si fallas otra vez recalibramos</div>
+    <div class="btn-row">
+      <button class="btn btn-fail" onclick="handleResult('legs',false)">✗ No pude</button>
+      <button class="btn btn-ok" id="legsBtnOk" onclick="handleResult('legs',true)">✓ Completé</button>
+    </div>
+  </div>
+  <div class="secondary-card">
+    <div class="sec-label">Complementario — Core</div>
+    <div class="sec-exercise">Plancha + Abdominales</div>
+    <div class="sec-detail">Plancha 3×30s · Abdominales 3×15 reps</div>
+  </div>
+  <div class="pipeline" id="legsPipeline"></div>
+  <button class="reset-btn" onclick="openModal()">Reiniciar</button>
+</div>
+
+<!-- HISTORY -->
+<div class="screen" id="screen-history">
+  <div class="header">
+    <button class="hist-btn" id="histBackBtn" onclick="histBack()">← Volver</button>
+    <span class="week-badge" id="histTitle">HISTORIAL</span>
+  </div>
+  <div class="hist-list" id="histList"></div>
+</div>
+
+<!-- COMPLETED -->
+<div class="screen" id="screen-completed">
+  <div class="completed-card">
+    <div class="completed-icon">★</div>
+    <div class="completed-title">PROGRAMA<br><span style="color:#fff">COMPLETADO</span></div>
+    <p class="completed-sub">Has llegado al nivel máximo. Planche pushups limpios. Eso es élite mundial.</p>
+    <div class="completed-stats" id="completedStats"></div>
+    <button class="btn btn-start" onclick="openModal()" style="background:#fff;color:#0e0e0e;margin-top:28px;width:100%">
+      Reiniciar programa
+    </button>
+  </div>
+</div>
+
+<!-- DIET -->
+<div class="screen" id="screen-diet">
+  <div class="diet-wrap">
+    <div class="diet-header">
+      <div class="diet-title">DIETA</div>
+      <div class="diet-date" id="dietDate"></div>
+    </div>
+    <div class="surface-block">
+      <div class="block-label">Tu peso actual</div>
+      <div class="weight-row">
+        <input class="weight-input" type="number" min="30" max="250" step="0.1" placeholder="70" id="weightInput"/>
+        <span class="weight-unit">kg</span>
+        <button class="weight-save" onclick="saveWeight()">Guardar</button>
+      </div>
+    </div>
+    <div id="noWeightMsg" class="no-weight-msg">Ingresa tu peso para ver tus metas diarias.</div>
+    <div id="dietContent" style="display:none">
+      <div class="macro-grid">
+        <div class="macro-card">
+          <div class="block-label">Proteína diaria</div>
+          <div class="macro-val" id="proteinGoal" style="color:#ff6b35">—</div>
+          <div class="macro-unit">gramos / día</div>
+          <div class="macro-bar"><div class="macro-bar-fill" id="proteinBar" style="background:#ff6b35;width:0%"></div></div>
+        </div>
+        <div class="macro-card">
+          <div class="block-label">Agua diaria</div>
+          <div class="macro-val" id="waterGoal" style="color:#3caaff">—</div>
+          <div class="macro-unit">litros / día</div>
+          <div class="macro-bar"><div class="macro-bar-fill" id="waterBar" style="background:#3caaff;width:0%"></div></div>
+        </div>
+      </div>
+      <div class="diet-alert" id="dietAlert"></div>
+      <div class="surface-block">
+        <div class="block-label" style="margin-bottom:14px">Hoy — ¿cumpliste?</div>
+        <div class="today-row">
+          <div><div class="today-name">Proteína</div><div class="today-goal" id="proteinGoalSub"></div></div>
+          <button class="toggle-btn off" id="toggleProtein" onclick="toggleToday('protein')"></button>
+        </div>
+        <div class="today-row">
+          <div><div class="today-name">Hidratación</div><div class="today-goal" id="waterGoalSub"></div></div>
+          <button class="toggle-btn off" id="toggleWater" onclick="toggleToday('water')"></button>
+        </div>
+      </div>
+      <div class="surface-block">
+        <div class="block-label" style="margin-bottom:12px">Esta semana (últimos 7 días)</div>
+        <div class="week-sum-row">
+          <div class="week-sum-item">
+            <div class="week-sum-val" id="weekProtein" style="color:#ff6b35">0/7</div>
+            <div class="week-sum-sub">Proteína</div>
+          </div>
+          <div class="week-sum-item">
+            <div class="week-sum-val" id="weekWater" style="color:#3caaff">0/7</div>
+            <div class="week-sum-sub">Hidratación</div>
+          </div>
+          <div class="week-sum-item">
+            <div class="week-sum-val" id="weekStreak" style="color:#e8ff3c">0</div>
+            <div class="week-sum-sub">Racha días</div>
+          </div>
+        </div>
+      </div>
+      <div id="dietHistList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottomNav" style="display:none">
+  <button class="nav-tab" id="tab-push" onclick="showTab('push')">
+    <span class="ti">💪</span>Push
+  </button>
+  <button class="nav-tab" id="tab-pull" onclick="showTab('pull')">
+    <span class="ti">🏋️</span>Pull
+  </button>
+  <button class="nav-tab" id="tab-legs" onclick="showTab('legs')">
+    <span class="ti">🦵</span>Legs
+  </button>
+  <button class="nav-tab" id="tab-diet" onclick="showTab('diet')">
+    <span class="ti">🥗</span>Dieta
+  </button>
+</nav>
+
+<script>
+// ── VARIANTS ──────────────────────────────────────────────────────────
+const PUSH_VARIANTS = [
+  {name:"Normales",       pct:0.70, color:"#e8ff3c", weeks:3},
+  {name:"Declinadas",     pct:0.55, color:"#ff6b35", weeks:3},
+  {name:"Diamante",       pct:0.40, color:"#3caaff", weeks:3},
+  {name:"Archer",         pct:0.30, color:"#b46fff", weeks:3},
+  {name:"Con Pausa",      pct:0.28, color:"#ff3c6b", weeks:3},
+  {name:"Tempo 3s",       pct:0.25, color:"#3cffd1", weeks:3},
+  {name:"Pseudo Planche", pct:0.20, color:"#ffaa3c", weeks:3},
+  {name:"1 Mano Asistida",pct:0.15, color:"#ff6bb5", weeks:3},
+  {name:"1 Mano",         pct:0.12, color:"#3cffaa", weeks:3},
+  {name:"1 Mano+Pausa",   pct:0.10, color:"#aa6bff", weeks:3},
+  {name:"1 Mano Tempo",   pct:0.09, color:"#ff9f3c", weeks:3},
+  {name:"Planche Lean",   pct:0.07, color:"#3cb5ff", weeks:3},
+  {name:"Planche",        pct:0.05, color:"#ffffff", weeks:3},
+];
+
+const PULL_VARIANTS = [
+  {name:"Remo Bilateral", pct:0.70, color:"#3cffaa", weeks:3, detail:"4kg cada mano · inclínate 45°"},
+  {name:"Remo Unilateral 6kg", pct:0.55, color:"#e8ff3c", weeks:3, detail:"6kg una mano · apoya la otra"},
+  {name:"Remo Unilateral 8kg", pct:0.45, color:"#ff6b35", weeks:3, detail:"8kg una mano · máximo peso"},
+  {name:"Dominadas Negativas", pct:0.35, color:"#3caaff", weeks:3, detail:"Baja lento 5s · usa silla para subir"},
+  {name:"Dominadas Asistidas", pct:0.28, color:"#b46fff", weeks:3, detail:"Banda o punta de pies en pared"},
+  {name:"Dominadas",           pct:0.20, color:"#ff3c6b", weeks:3, detail:"Agarre prono · rango completo"},
+  {name:"Dominadas +Pausa",    pct:0.15, color:"#3cffd1", weeks:3, detail:"3s arriba antes de bajar"},
+  {name:"Dominadas Tempo",     pct:0.12, color:"#ffaa3c", weeks:3, detail:"3s subiendo · 3s bajando"},
+  {name:"Dominadas Archer",    pct:0.10, color:"#ffffff", weeks:3, detail:"Un brazo más extendido al lado"},
+];
+
+const LEGS_VARIANTS = [
+  {name:"Sentadilla BW",      pct:0.70, color:"#e8ff3c", weeks:3, detail:"Peso corporal · profundidad completa"},
+  {name:"Sentadilla 4+4kg",   pct:0.60, color:"#ff6b35", weeks:3, detail:"4kg cada mano · mancuernas al lado"},
+  {name:"Zancada BW",         pct:0.50, color:"#3caaff", weeks:3, detail:"Peso corporal · paso largo"},
+  {name:"Zancada 4+4kg",      pct:0.40, color:"#b46fff", weeks:3, detail:"4kg cada mano"},
+  {name:"PDR Rumano 8kg",     pct:0.35, color:"#ff3c6b", weeks:3, detail:"8kg en una mano · bisagra de cadera"},
+  {name:"Sentadilla Búlgara", pct:0.28, color:"#3cffd1", weeks:3, detail:"Pie trasero elevado · muy intenso"},
+  {name:"Sentadilla Pistol Asistida", pct:0.20, color:"#ffaa3c", weeks:3, detail:"Una pierna · agárrate de algo"},
+  {name:"Sentadilla Pistol",  pct:0.12, color:"#3cffaa", weeks:3, detail:"Una pierna libre · élite"},
+];
+
+// Shoulder complement levels based on push variant index
+const SHOULDER_LEVELS = [
+  {detail:"3 series × 12 reps · 2kg cada mano"},
+  {detail:"3 series × 12 reps · 2kg cada mano"},
+  {detail:"3 series × 12 reps · 4kg cada mano"},
+  {detail:"3 series × 10 reps · 4kg cada mano"},
+  {detail:"3 series × 10 reps · 4kg cada mano"},
+  {detail:"3 series × 8 reps · 4kg cada mano"},
+];
+
+// Curl complement levels based on pull variant index
+const CURL_LEVELS = [
+  {detail:"3 series × 10 reps · 2kg cada mano"},
+  {detail:"3 series × 10 reps · 4kg cada mano"},
+  {detail:"3 series × 8 reps · 4kg cada mano"},
+  {detail:"3 series × 8 reps · 4kg cada mano"},
+  {detail:"3 series × 8 reps · 4kg cada mano"},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────
+const STORE_KEY = "fitness_v1";
+const mkGroup = (max, variants) => ({
+  maxReps: max,
+  variantIndex: 0,
+  weekInVariant: 1,
+  baseReps: calcReps(max, variants[0].pct),
+  failStreak: 0,
+  history: [],
+});
+
+const DEFAULT_STATE = {
+  push: null, pull: null, legs: null,
+  weightKg: null, dietLog: {},
+};
+
+let state = (() => {
+  try { const s=localStorage.getItem(STORE_KEY); return s?{...DEFAULT_STATE,...JSON.parse(s)}:null; }
+  catch { return null; }
+})();
+
+let currentHistTab = "push";
+
+function saveState(){ try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch{} }
+function calcReps(max,pct){ return Math.max(1,Math.round(max*pct)); }
+function todayKey(){ return new Date().toISOString().slice(0,10); }
+function todayLabel(){ return new Date().toLocaleDateString("es-EC",{weekday:"long",day:"2-digit",month:"short"}); }
+
+// INIT
+if(state && state.push){ document.getElementById("bottomNav").style.display="flex"; showTab("push"); }
+else showScreen("setup");
+
+// SCREENS
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("screen-"+name).classList.add("active");
+}
+function showTab(tab){
+  document.getElementById("bottomNav").style.display="flex";
+  document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById("tab-"+tab).classList.add("active");
+  if(tab==="diet"){ showScreen("diet"); renderDiet(); }
+  else { showScreen(tab); renderGroup(tab); }
+  const colors={push:"#e8ff3c",pull:"#3cffaa",legs:"#e8ff3c",diet:"#ff6b35"};
+  document.getElementById("glow").style.background = colors[tab]||"#e8ff3c";
+}
+
+// SETUP
+function onMaxInput(){
+  const val=parseInt(document.getElementById("maxInput").value);
+  const btn=document.getElementById("startBtn");
+  const pre=document.getElementById("setupPreview");
+  if(!isNaN(val)&&val>=1){
+    btn.disabled=false;
+    pre.innerHTML=`Empezarás con <strong style="color:#e8ff3c">${Math.round(val*0.70)} reps</strong> en push (70% de ${val})`;
+  } else { btn.disabled=true; pre.textContent=""; }
+}
+
+function startProgram(){
+  const max=parseInt(document.getElementById("maxInput").value);
+  if(isNaN(max)||max<1) return;
+  // Pull and legs start at sensible defaults
+  state={
+    ...DEFAULT_STATE,
+    push: mkGroup(max, PUSH_VARIANTS),
+    pull: mkGroup(14, PULL_VARIANTS),   // 14 remo bilateral as starting max
+    legs: mkGroup(20, LEGS_VARIANTS),   // 20 sentadilla BW as starting max
+    weightKg: null, dietLog:{},
+  };
+  saveState();
+  document.getElementById("bottomNav").style.display="flex";
+  showTab("push");
+}
+
+// RENDER GROUP
+function renderGroup(g){
+  const variants = g==="push"?PUSH_VARIANTS:g==="pull"?PULL_VARIANTS:LEGS_VARIANTS;
+  const gs = state[g];
+  const v = variants[gs.variantIndex];
+  const reps = gs.baseReps + (gs.weekInVariant-1);
+  const totalW = gs.history.length+1;
+  const pct = gs.weekInVariant/v.weeks*100;
+
+  const accentColor = v.color;
+  document.getElementById("glow").style.background = accentColor;
+
+  document.getElementById(`${g}WeekBadge`).textContent = `SEMANA ${totalW}`;
+  document.getElementById(`${g}HistCount`).textContent = gs.history.length;
+
+  const tag=document.getElementById(`${g}VariantTag`);
+  tag.textContent=v.name; tag.style.color=accentColor; tag.style.borderColor=accentColor+"44";
+
+  const num=document.getElementById(`${g}RepsNum`);
+  num.textContent=reps; num.style.color=accentColor;
+
+  document.getElementById(`${g}ProgressMeta`).textContent=`Semana ${gs.weekInVariant} de ${v.weeks} en esta variante`;
+  const fill=document.getElementById(`${g}ProgressFill`);
+  fill.style.width=pct+"%"; fill.style.background=accentColor;
+
+  document.getElementById(`${g}BtnOk`).style.background=accentColor;
+  document.getElementById(`${g}Warn`).classList.toggle("visible",gs.failStreak>0);
+
+  // Complementary details
+  if(g==="push"){
+    const sl=SHOULDER_LEVELS[Math.min(gs.variantIndex,SHOULDER_LEVELS.length-1)];
+    document.getElementById("pushSecDetail").textContent=sl.detail;
+    if(v.detail) document.getElementById("pushSecExercise").textContent = "Press hombro con mancuernas";
+  }
+  if(g==="pull"){
+    const cl=CURL_LEVELS[Math.min(gs.variantIndex,CURL_LEVELS.length-1)];
+    document.getElementById("pullSecDetail").textContent=cl.detail;
+  }
+
+  renderPipelineFor(g, variants, accentColor);
+}
+
+function renderPipelineFor(g, variants, accentColor){
+  const gs=state[g];
+  document.getElementById(`${g}Pipeline`).innerHTML=variants.map((v,i)=>{
+    const active=i===gs.variantIndex, done=i<gs.variantIndex;
+    return `<div class="pipe-step">
+      <div class="pipe-dot" style="background:${(active||done)?v.color:"#2a2a2a"};opacity:${i>gs.variantIndex?0.35:1};box-shadow:${active?`0 0 8px ${v.color}88`:"none"}"></div>
+      <span class="pipe-name" style="color:${active?v.color:done?"#555":"#333"}">${v.name}</span>
+    </div>`;
+  }).join("");
+}
+
+// RESULT HANDLER
+function handleResult(g, completed){
+  const variants=g==="push"?PUSH_VARIANTS:g==="pull"?PULL_VARIANTS:LEGS_VARIANTS;
+  const gs=state[g];
+  const v=variants[gs.variantIndex];
+  const reps=gs.baseReps+(gs.weekInVariant-1);
+
+  gs.history.push({
+    week:gs.history.length+1, variant:v.name, reps, series:3, completed,
+    date:new Date().toLocaleDateString("es-EC",{day:"2-digit",month:"short"}),
+  });
+
+  if(!completed){
+    gs.failStreak++;
+    if(gs.failStreak>=2){
+      gs.baseReps=Math.max(1,Math.round(gs.baseReps*0.9));
+      gs.weekInVariant=1; gs.failStreak=0;
+    }
+  } else {
+    gs.failStreak=0;
+    const nw=gs.weekInVariant+1;
+    if(nw>v.weeks){
+      const ni=gs.variantIndex+1;
+      if(ni>=variants.length){
+        if(g==="push"){ saveState(); showScreen("completed"); renderCompleted(); return; }
+        // pull/legs: loop last
+        gs.variantIndex=variants.length-1;
+        gs.baseReps=calcReps(gs.maxReps,variants[variants.length-1].pct);
+        gs.weekInVariant=1;
+      } else {
+        gs.variantIndex=ni;
+        gs.baseReps=calcReps(gs.maxReps,variants[ni].pct);
+        gs.weekInVariant=1;
+      }
+    } else { gs.weekInVariant=nw; }
+  }
+  saveState(); renderGroup(g);
+}
+
+// HISTORY
+function showHistFor(g){
+  currentHistTab=g;
+  const labels={push:"PUSH",pull:"PULL",legs:"LEGS"};
+  document.getElementById("histTitle").textContent=`HISTORIAL ${labels[g]}`;
+  renderHistory(g);
+  showScreen("history");
+}
+function histBack(){ showTab(currentHistTab); }
+
+function renderHistory(g){
+  const el=document.getElementById("histList");
+  const gs=state[g];
+  if(!gs||gs.history.length===0){ el.innerHTML='<p class="hist-empty">Sin registros aún.</p>'; return; }
+  const colors={push:"#e8ff3c",pull:"#3cffaa",legs:"#b46fff"};
+  const color=colors[g];
+  el.innerHTML=[...gs.history].reverse().map(h=>{
+    const ok=h.completed;
+    return `<div class="hist-row">
+      <div class="hist-top">
+        <span class="hist-week">SEM ${h.week} · ${h.date}</span>
+        <span class="hist-badge" style="background:${ok?"rgba(232,255,60,0.1)":"rgba(255,60,60,0.1)"};color:${ok?"#e8ff3c":"#ff5555"};border-color:${ok?"#e8ff3c44":"#ff555544"}">
+          ${ok?"✓ OK":"✗ Fail"}
+        </span>
+      </div>
+      <div class="hist-detail">
+        <span class="hist-group-tag" style="color:${color};border-color:${color}44">${g.toUpperCase()}</span>
+        ${h.series} × ${h.reps} reps <span class="hist-variant">${h.variant}</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderCompleted(){
+  const total=state.push.history.length;
+  const done=state.push.history.filter(h=>h.completed).length;
+  document.getElementById("completedStats").innerHTML=
+    `${total} semanas de push registradas &nbsp;·&nbsp; ${done} completadas<br>
+     Máximo inicial: ${state.push.maxReps} reps &nbsp;·&nbsp; 13 fases superadas`;
+  document.getElementById("glow").style.background="#ffffff";
+}
+
+// DIET
+function renderDiet(){
+  document.getElementById("dietDate").textContent=todayLabel();
+  const w=state.weightKg;
+  if(w) document.getElementById("weightInput").value=w;
+  if(!w){
+    document.getElementById("noWeightMsg").style.display="block";
+    document.getElementById("dietContent").style.display="none";
+    return;
+  }
+  document.getElementById("noWeightMsg").style.display="none";
+  document.getElementById("dietContent").style.display="block";
+  const protG=Math.round(w*1.6);
+  const waterL=(w*0.035).toFixed(1);
+  document.getElementById("proteinGoal").textContent=protG;
+  document.getElementById("waterGoal").textContent=waterL;
+  document.getElementById("proteinGoalSub").textContent=`Meta: ${protG}g`;
+  document.getElementById("waterGoalSub").textContent=`Meta: ${waterL}L`;
+  const today=state.dietLog[todayKey()]||{};
+  setToggle("toggleProtein",!!today.protein,"#ff6b35");
+  setToggle("toggleWater",!!today.water,"#3caaff");
+  const days7=getLast7();
+  const pd=days7.filter(d=>d.protein).length;
+  const wd=days7.filter(d=>d.water).length;
+  document.getElementById("proteinBar").style.width=(pd/7*100)+"%";
+  document.getElementById("waterBar").style.width=(wd/7*100)+"%";
+  document.getElementById("weekProtein").textContent=`${pd}/7`;
+  document.getElementById("weekWater").textContent=`${wd}/7`;
+  document.getElementById("weekStreak").textContent=calcStreak();
+  let fail=0;
+  for(let i=1;i<=3;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    if(!(state.dietLog[d.toISOString().slice(0,10)]||{}).protein)fail++;else break;
+  }
+  const al=document.getElementById("dietAlert");
+  if(fail>=3){al.textContent="⚠ Llevas 3 días sin cumplir tu meta de proteína.";al.classList.add("visible");}
+  else al.classList.remove("visible");
+  renderDietHistory();
+}
+
+function setToggle(id,on,color){
+  const btn=document.getElementById(id);
+  btn.className="toggle-btn "+(on?"on":"off");
+  btn.style.background=on?color:"#2a2a2a";
+}
+function toggleToday(type){
+  const k=todayKey();
+  if(!state.dietLog[k])state.dietLog[k]={};
+  state.dietLog[k][type]=!state.dietLog[k][type];
+  saveState();renderDiet();
+}
+function getLast7(){
+  return Array.from({length:7},(_,i)=>{
+    const d=new Date();d.setDate(d.getDate()-(6-i));
+    return state.dietLog[d.toISOString().slice(0,10)]||{};
+  });
+}
+function calcStreak(){
+  let s=0;
+  for(let i=0;i<60;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const log=state.dietLog[d.toISOString().slice(0,10)]||{};
+    if(log.protein&&log.water)s++;else break;
+  }
+  return s;
+}
+function renderDietHistory(){
+  const el=document.getElementById("dietHistList");
+  const rows=[];
+  for(let i=0;i<14;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const k=d.toISOString().slice(0,10);
+    const log=state.dietLog[k];
+    if(!log)continue;
+    const label=d.toLocaleDateString("es-EC",{weekday:"short",day:"2-digit",month:"short"});
+    rows.push(`<div class="diet-hist-row">
+      <span class="diet-hist-date">${label}</span>
+      <div class="diet-hist-badges">
+        <span class="dhb ${log.protein?"dhb-ok":"dhb-fail"}">${log.protein?"✓":"✗"} Proteína</span>
+        <span class="dhb ${log.water?"dhb-ok":"dhb-fail"}">${log.water?"✓":"✗"} Agua</span>
+      </div>
+    </div>`);
+  }
+  el.innerHTML=rows.join("");
+}
+function saveWeight(){
+  const val=parseFloat(document.getElementById("weightInput").value);
+  if(isNaN(val)||val<30)return;
+  state.weightKg=val;saveState();renderDiet();
+}
+
+// MODAL
+function openModal(){document.getElementById("resetModal").classList.add("visible");}
+function closeModal(){document.getElementById("resetModal").classList.remove("visible");}
+function confirmReset(){
+  closeModal();
+  localStorage.removeItem(STORE_KEY);
+  state=null;
+  document.getElementById("maxInput").value="";
+  document.getElementById("setupPreview").textContent="";
+  document.getElementById("startBtn").disabled=true;
+  document.getElementById("bottomNav").style.display="none";
+  showScreen("setup");
+}
+
+// SERVICE WORKER
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .catch(err => console.log('SW error:', err));
+  });
+}
+</script>
+</body>
+</html>
